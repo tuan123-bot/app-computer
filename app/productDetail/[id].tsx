@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useCart } from "../context/CartContext";
 
 // Định nghĩa URL API Backend của bạn (Sử dụng IP cho Android Emulator)
 const BASE_URL = "http://10.0.2.2:5000/api/products";
@@ -32,8 +34,15 @@ const getStockStyle = (stock: number) => ({
 });
 
 const ProductDetailScreen = () => {
+  // ✅ SỬA LỖI HOOKS: Di chuyển useCart vào trong component
+  const { addToCart } = useCart();
+
   // 1. Nhận tham số [id] từ URL
   const { id } = useLocalSearchParams();
+  console.log("-----------------------------------------");
+  console.log("ID SẢN PHẨM NHẬN ĐƯỢC:", id);
+  console.log("TYPE CỦA ID:", typeof id);
+  console.log("-----------------------------------------");
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -50,25 +59,46 @@ const ProductDetailScreen = () => {
       setLoading(true);
       setError(null);
       try {
+        // 1. Thực hiện Fetch
         const response = await fetch(`${BASE_URL}/${id}`);
 
+        // 2. Ném lỗi cho các Status code không thành công (ví dụ: 404, 500)
         if (!response.ok) {
-          throw new Error(`Lỗi HTTP: ${response.status}`);
+          // Chúng ta thử đọc body của lỗi để lấy thông tin chi tiết hơn
+          const errorBody = await response.text();
+          // Ghi lại lỗi chi tiết vào console (nếu cần)
+          console.error("Lỗi Response Body:", errorBody);
+
+          // Ném lỗi chi tiết hơn
+          throw new Error(
+            `Lỗi HTTP: ${response.status} - ${response.statusText}`
+          );
         }
 
+        // 3. Đọc JSON
         const json = await response.json();
 
-        // Backend có thể trả về { status: 'success', data: product } hoặc chỉ product
+        // 4. KIỂM TRA LỖI NHÚNG TRONG JSON (Dành cho status 200 nhưng nội dung báo lỗi)
+        if (json.status === "error") {
+          throw new Error(
+            json.message || "Lỗi dữ liệu từ máy chủ không xác định."
+          );
+        }
+
         const productData = json.data || json;
 
+        // 5. Kiểm tra dữ liệu hợp lệ (sử dụng 'id' thay vì '_id' nếu Backend trả về 'id')
         if (productData && productData._id) {
-          setProduct(productData as Product); // Ép kiểu an toàn hơn
+          setProduct(productData as Product);
         } else {
-          setError("Không tìm thấy sản phẩm này.");
+          setError(
+            "Không tìm thấy sản phẩm này hoặc cấu trúc dữ liệu không hợp lệ."
+          );
         }
       } catch (e: any) {
-        // Ghi lại lỗi chi tiết vào console
-        console.error("Lỗi khi tải dữ liệu chi tiết:", e);
+        // Bắt tất cả các lỗi đã được throw ở trên (Lỗi HTTP, Lỗi JSON nhúng, Lỗi Fetch mạng)
+        console.error("LỖI CUỐI CÙNG BỊ BẮT:", e);
+        // Dòng code này sẽ hoạt động tốt với các lỗi đã được throw
         setError(`Không thể tải dữ liệu: ${e.message}`);
       } finally {
         setLoading(false);
@@ -77,6 +107,20 @@ const ProductDetailScreen = () => {
 
     fetchProduct();
   }, [id]); // Chạy lại khi ID thay đổi
+
+  // Hàm xử lý sự kiện Thêm vào Giỏ hàng
+  const handleAddToCartPress = () => {
+    if (product) {
+      // ✅ SỬA LOGIC: Gửi dữ liệu sản phẩm cần thiết cho Context
+      const itemToAdd = {
+        id: product._id,
+        title: product.title,
+        price: product.price,
+      };
+      addToCart(itemToAdd);
+      console.log(`Đã thêm sản phẩm ${product.title} vào giỏ hàng.`);
+    }
+  };
 
   // Hiển thị Loading
   if (loading) {
@@ -101,50 +145,55 @@ const ProductDetailScreen = () => {
 
   // 2. Giao diện Chi tiết Sản phẩm
   return (
-    <ScrollView style={styles.container}>
-      {/* Sử dụng Stack.Screen options để tùy chỉnh Header */}
-      <Stack.Screen
-        options={{
-          headerTitle: product.title.substring(0, 20) + "...",
-        }}
-      />
+    <SafeAreaView style={{ flex: 1 }}>
+      <ScrollView style={styles.container}>
+        {/* Sử dụng Stack.Screen options để tùy chỉnh Header */}
+        <Stack.Screen
+          options={{
+            headerTitle: product.title.substring(0, 20) + "...",
+          }}
+        />
 
-      <Image source={{ uri: product.thumbnail }} style={styles.thumbnail} />
+        <Image source={{ uri: product.thumbnail }} style={styles.thumbnail} />
 
-      <View style={styles.content}>
-        <Text style={styles.title}>{product.title}</Text>
+        <View style={styles.content}>
+          <Text style={styles.title}>{product.title}</Text>
 
-        <View style={styles.priceContainer}>
-          <Text style={styles.price}>
-            {product.price.toLocaleString("vi-VN")} VND
-          </Text>
-          {product.discountPercentage > 0 && (
-            <Text style={styles.discount}>-{product.discountPercentage}%</Text>
-          )}
+          <View style={styles.priceContainer}>
+            <Text style={styles.price}>
+              {product.price.toLocaleString("vi-VN")} VND
+            </Text>
+            {product.discountPercentage > 0 && (
+              <Text style={styles.discount}>
+                -{product.discountPercentage}%
+              </Text>
+            )}
+          </View>
+
+          <Text style={styles.heading}>Mô Tả:</Text>
+          <Text style={styles.description}>{product.description}</Text>
+
+          <View style={styles.stockContainer}>
+            <Text style={styles.stockLabel}>Tình trạng:</Text>
+            {/* Sử dụng hàm getStockStyle để tạo style động */}
+            <Text style={getStockStyle(product.stock)}>
+              {product.stock > 0 ? `Còn hàng (${product.stock})` : "Hết hàng"}
+            </Text>
+          </View>
+
+          {/* Nút Giỏ hàng/Mua ngay */}
+          <View style={styles.buyButtonContainer}>
+            <TouchableOpacity
+              // ✅ GỌI HÀM XỬ LÝ KHI BẤM NÚT
+              onPress={handleAddToCartPress}
+              style={styles.buyButtonContainer}
+            >
+              <Text style={styles.buyButtonText}>thêm vào giỏ hàng</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-
-        <Text style={styles.heading}>Mô Tả:</Text>
-        <Text style={styles.description}>{product.description}</Text>
-
-        <View style={styles.stockContainer}>
-          <Text style={styles.stockLabel}>Tình trạng:</Text>
-          {/* Sử dụng hàm getStockStyle để tạo style động */}
-          <Text style={getStockStyle(product.stock)}>
-            {product.stock > 0 ? `Còn hàng (${product.stock})` : "Hết hàng"}
-          </Text>
-        </View>
-
-        {/* Nút Giỏ hàng/Mua ngay */}
-        <View style={styles.buyButtonContainer}>
-          <TouchableOpacity
-            onPress={() => console.log("Thêm vào giỏ hàng: " + product._id)}
-            style={styles.buyButtonContainer}
-          >
-            <Text style={styles.buyButtonText}>MUA NGAY</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 };
 

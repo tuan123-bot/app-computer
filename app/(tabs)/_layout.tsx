@@ -1,51 +1,64 @@
-import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import React from "react";
-import { StyleSheet } from "react-native";
+// Bạn cần đảm bảo đã cài đặt expo/vector-icons (ví dụ: npm install @expo/vector-icons)
+import { Ionicons } from "@expo/vector-icons";
+import { useCart } from "../context/CartContext";
 
-// 🚨 Lấy kiểu dữ liệu chính xác cho tên Icon từ Ionicons
-type IoniconsName = keyof typeof Ionicons.glyphMap;
+const TabLayout = () => {
+  // ✅ Lấy số lượng sản phẩm trong giỏ hàng từ Context
+  const { cartCount } = useCart();
 
-interface TabIconProps {
-  name: IoniconsName;
-  color: string;
-}
-
-// Hàm helper để tạo Icon
-const TabIcon = ({ name, color }: TabIconProps) => {
-  return <Ionicons name={name} size={24} color={color} />;
-};
-
-export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: "#3498db",
-        tabBarInactiveTintColor: "#7f8c8d",
-        tabBarStyle: styles.tabBar,
         headerShown: false,
+        tabBarActiveTintColor: "#007AFF", // Màu icon khi được chọn
+        tabBarInactiveTintColor: "#8E8E93", // Màu icon khi không được chọn
+        tabBarStyle: {
+          paddingBottom: 5,
+          paddingTop: 5,
+          height: 60,
+        },
       }}
     >
-      {/* -------------------- TAB 1: TRANG CHỦ (DUY NHẤT) -------------------- */}
+      {/* 1. TAB TRANG CHỦ */}
       <Tabs.Screen
-        // Tên file phải là 'HomeScreen.tsx'
         name="HomeScreen"
         options={{
           title: "Trang Chủ",
-          tabBarIcon: ({ color }) => (
-            <TabIcon name="home-outline" color={color} />
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="home-outline" color={color} size={size} />
           ),
+        }}
+      />
+
+      {/* 2. TAB GIỎ HÀNG (Bạn cần tạo file cart.tsx bên cạnh index.tsx) */}
+      <Tabs.Screen
+        name="card"
+        options={{
+          title: "Giỏ Hàng",
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="cart-outline" color={color} size={size} />
+          ),
+
+          // ✅ LOGIC HUY HIỆU (BADGE) MÀU ĐỎ:
+          // Chỉ hiển thị huy hiệu nếu cartCount > 0
+          tabBarBadge: cartCount > 0 ? cartCount : undefined,
+
+          // Tùy chỉnh màu sắc và style của huy hiệu
+          tabBarBadgeStyle: {
+            backgroundColor: "#E74C3C", // Màu đỏ rực
+            color: "white", // Chữ trắng
+            fontWeight: "bold",
+            fontSize: 12,
+            minWidth: 20,
+            lineHeight: 18,
+            borderRadius: 10,
+          },
         }}
       />
     </Tabs>
   );
-}
+};
 
-const styles = StyleSheet.create({
-  tabBar: {
-    height: 60,
-    paddingBottom: 5,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
-  },
-});
+export default TabLayout;

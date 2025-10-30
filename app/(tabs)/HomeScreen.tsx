@@ -1,19 +1,17 @@
 import Header from "@/components/header/header";
 import SalePaner from "@/components/header/salepaner";
 import ProductCard from "@/components/product/ProductCard";
-import { useRouter } from "expo-router"; // 🚨 Import useRouter
+import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// Chú ý: 10.0.2.2 là địa chỉ localhost khi chạy trên Android Emulator
 const API_URL = "http://10.0.2.2:5000/api/products";
 
 const style = StyleSheet.create({
@@ -33,24 +31,34 @@ interface ProductItem {
 }
 
 const HomeScreen = () => {
-  const router = useRouter(); // Khởi tạo router
+  const router = useRouter();
 
   const [allProducts, setAllProducts] = useState<ProductItem[]>([]);
   const [displayProducts, setDisplayProducts] = useState<ProductItem[]>([]);
+
+  // ✅ THÊM: State cho loading ban đầu (isLoading) và kéo làm mới (isRefreshing)
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     fetchProducts();
   }, []);
 
-  const fetchProducts = async () => {
+  // ✅ CHỈNH SỬA: Hàm tải dữ liệu, nhận tham số 'isPullToRefresh'
+  const fetchProducts = async (isPullToRefresh: boolean = false) => {
+    // Chỉ bật spinner loading ban đầu, không làm lại nếu là kéo làm mới
+    if (!isPullToRefresh) {
+      setIsLoading(true);
+    } else {
+      setIsRefreshing(true); // Bật spinner làm mới
+    }
+
     try {
       const response = await fetch(API_URL);
       const json = await response.json();
 
       if (json.status === "success" && Array.isArray(json.data)) {
         const fetchedData: ProductItem[] = json.data;
-
         setAllProducts(fetchedData);
         setDisplayProducts(fetchedData);
       } else {
@@ -63,7 +71,9 @@ const HomeScreen = () => {
     } catch (error) {
       console.error("Could not fetch data:", error);
     } finally {
+      // Ẩn cả hai trạng thái loading
       setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
@@ -84,10 +94,14 @@ const HomeScreen = () => {
     [allProducts]
   );
 
-  // 🚨 HÀM MỚI: Xử lý chuyển hướng đến trang chi tiết
+  // ✅ THÊM: Hàm xử lý sự kiện kéo làm mới
+  const handlePullToRefresh = useCallback(() => {
+    // Gọi fetchProducts và báo cho nó là Pull-to-Refresh
+    fetchProducts(true);
+  }, []);
+
   const handleNavigateToDetail = (productId: string) => {
-    // Sử dụng route động để chuyển sang màn hình productDetail/[id].tsx
-    router.push("/productDetail/[id]");
+    router.push(`/productDetail/${productId}`);
   };
 
   if (isLoading) {
@@ -99,30 +113,37 @@ const HomeScreen = () => {
     );
   }
 
+  // ✅ CHỈNH SỬA: BỎ SCROLLVIEW BỌC NGOÀI, SỬ DỤNG ListHeaderComponent
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <Header onSearch={handleSearch} />
-      <ScrollView style={{ flex: 1 }}>
-        <SalePaner />
-        <FlatList
-          data={displayProducts}
-          renderItem={({ item }) => (
-            // 🚨 SỬA: Truyền hàm điều hướng onNavigate xuống ProductCard
-            <ProductCard item={item} onNavigate={handleNavigateToDetail} />
-          )}
-          keyExtractor={(item) => item._id}
-          numColumns={2}
-          scrollEnabled={false}
-          contentContainerStyle={{ paddingHorizontal: 8 }} // Thêm padding cho đẹp
-        />
-        {displayProducts.length === 0 && !isLoading && (
-          <View style={{ padding: 20, alignItems: "center" }}>
-            <Text style={{ color: "#9CA3AF" }}>
-              Không tìm thấy sản phẩm nào.
-            </Text>
-          </View>
+
+      <FlatList
+        data={displayProducts}
+        renderItem={({ item }) => (
+          <ProductCard item={item} onNavigate={handleNavigateToDetail} />
         )}
-      </ScrollView>
+        keyExtractor={(item) => item._id}
+        numColumns={2}
+        // 👈 PROP QUAN TRỌNG NHẤT: Bắt sự kiện kéo làm mới
+        onRefresh={handlePullToRefresh}
+        // 👈 PROP KIỂM SOÁT SPINNER: Hiển thị vòng tròn loading
+        refreshing={isRefreshing}
+        // ✅ DÙNG ListHeaderComponent THAY CHO ScrollView
+        ListHeaderComponent={() => (
+          <>
+            <SalePaner />
+            {displayProducts.length === 0 && !isLoading && !isRefreshing && (
+              <View style={{ padding: 20, alignItems: "center" }}>
+                <Text style={{ color: "#9CA3AF" }}>
+                  Không tìm thấy sản phẩm nào.
+                </Text>
+              </View>
+            )}
+          </>
+        )}
+        contentContainerStyle={{ paddingHorizontal: 8 }}
+      />
     </SafeAreaView>
   );
 };
