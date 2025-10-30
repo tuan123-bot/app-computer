@@ -1,22 +1,38 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
+import {
+  DarkTheme,
+  DefaultTheme,
+  ThemeProvider,
+} from "@react-navigation/native";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import "react-native-reanimated";
 
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useColorScheme } from "@/hooks/use-color-scheme";
 
 export const unstable_settings = {
-  anchor: '(tabs)',
+  anchor: "(tabs)",
 };
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+    <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <Stack
+        // Đặt tùy chọn mặc định để ẩn header cho tất cả các Stack Screen
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        {/* 🚨 KHÔNG CẦN options={{ headerShown: false }} Ở ĐÂY NỮA */}
+        <Stack.Screen name="(tabs)" />
+
+        {/* Các màn hình xác thực (auth) */}
+        <Stack.Screen name="(auth)/login" />
+        <Stack.Screen name="(auth)/signup" />
+
+        {/* Màn hình chi tiết sản phẩm (nếu muốn có header) */}
+        <Stack.Screen name="productDetail/[id]" />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>
