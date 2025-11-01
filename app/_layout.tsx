@@ -36,6 +36,7 @@ export default function RootLayout() {
           {/* Màn hình chi tiết sản phẩm (nếu muốn có header) */}
           <Stack.Screen name="productDetail/[id]" />
           <Stack.Screen name="context/CartContext.tsx" />
+          <Stack.Screen name="(tabs)/checkout.tsx" />
         </Stack>
         <StatusBar style="auto" />
       </ThemeProvider>

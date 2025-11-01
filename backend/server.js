@@ -58,5 +58,10 @@ app.post("/api/products", productController.productList);
 
 app.get("/api/products/:id", productController.getProductDetail);
 
+app.post("/api/orders", productController.createOrder);
+
+app.get("/api/orders", productController.getOrders);
+
+app.put("/api/orders/:id", productController.updateOrderStatus);
 // --- Khởi động Server ---
 app.listen(PORT, () => console.log(`Server đang chạy trên cổng ${PORT}`));

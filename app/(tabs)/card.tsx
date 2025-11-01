@@ -55,7 +55,7 @@ const CartScreen = () => {
   // Xử lý chuyển hướng đến trang Thanh toán (Cần tạo file checkout.tsx)
   const handleCheckout = () => {
     if (cartCount > 0) {
-      router.push("/"); // Ví dụ: Chuyển sang route /checkout.tsx
+      router.push("./checkout"); // Ví dụ: Chuyển sang route /checkout.tsx
     }
   };
 
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 15,
     fontWeight: "bold",
-    color: "#27AE60", // Màu xanh lá cây
+    color: "#27AE60",
     marginTop: 4,
   },
   itemQuantity: {

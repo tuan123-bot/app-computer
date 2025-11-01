@@ -1,4 +1,5 @@
 const Product = require("../models/Product");
+const Order = require("../models/OrderModel");
 
 /**
  * @desc    Lấy danh sách sản phẩm (Active, chưa xóa)
@@ -121,5 +122,109 @@ const getProductDetail = async (req, res) => {
     });
   }
 };
+const createOrder = async (req, res) => {
+  try {
+    const orderData = req.body;
+    if (
+      !orderData.customerName ||
+      !orderData.totalAmount ||
+      orderData.items.length === 0
+    ) {
+      return res
+        .status(400)
+        .json({ status: "error", message: "Dữ liệu đơn hàng không hợp lệ." });
+    }
+    const newOrder = new Order(orderData);
+    await newOrder.save();
+    res.status(201).json({
+      status: "success",
+      message: "Đơn hàng đã được tạo thành công!",
+      orderId: newOrder._id,
+    });
+  } catch (error) {
+    console.error("Lỗi khi tạo đơn hàng:", error);
+    res
+      .status(500)
+      .json({
+        status: "error",
+        message: "Lỗi server nội bộ khi tạo đơn hàng.",
+      });
+  }
+};
 
-module.exports = { getProducts, productList, getProductDetail };
+// --- 2. LẤY TẤT CẢ ĐƠN HÀNG (GET /api/orders) ---
+const getOrders = async (req, res) => {
+  try {
+    const orders = await Order.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      status: "success",
+      count: orders.length,
+      orders, // 💡 Trả về mảng 'orders'
+    });
+  } catch (error) {
+    console.error("Lỗi khi lấy danh sách đơn hàng:", error);
+    res
+      .status(500)
+      .json({
+        status: "error",
+        message: "Lỗi server nội bộ khi lấy danh sách đơn hàng.",
+      });
+  }
+};
+
+// --- 3. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (PUT /api/orders/:id) ---
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (
+      !status ||
+      !["Pending", "Confirmed", "Shipped", "Cancelled"].includes(status)
+    ) {
+      return res
+        .status(400)
+        .json({
+          status: "error",
+          message: "Trạng thái cập nhật không hợp lệ.",
+        });
+    }
+
+    const updatedOrder = await Order.findByIdAndUpdate(
+      id,
+      { status: status },
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedOrder) {
+      return res
+        .status(404)
+        .json({
+          status: "error",
+          message: "Không tìm thấy đơn hàng cần cập nhật.",
+        });
+    }
+
+    res.status(200).json({
+      status: "success",
+      message: `Đơn hàng ${id} đã được cập nhật trạng thái thành ${status}.`,
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
+    res
+      .status(500)
+      .json({
+        status: "error",
+        message: "Lỗi server nội bộ khi cập nhật đơn hàng.",
+      });
+  }
+};
+module.exports = {
+  getProducts,
+  productList,
+  getProductDetail,
+  getOrders,
+  updateOrderStatus,
+  createOrder,
+};

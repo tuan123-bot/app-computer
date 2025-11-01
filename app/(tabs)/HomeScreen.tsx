@@ -12,7 +12,8 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const API_URL = "http://10.0.2.2:5000/api/products";
+// const API_URL = "http://10.181.244.17:5000/api/products";
+const API_URL = "http://192.168.100.114:5000/api/products";
 
 const style = StyleSheet.create({
   center: {

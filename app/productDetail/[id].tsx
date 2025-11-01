@@ -13,7 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useCart } from "../context/CartContext";
 
 // Định nghĩa URL API Backend của bạn (Sử dụng IP cho Android Emulator)
-const BASE_URL = "http://10.0.2.2:5000/api/products";
+const BASE_URL = "http://192.168.100.114:5000/api/products";
 
 interface Product {
   _id: string;
@@ -116,6 +116,7 @@ const ProductDetailScreen = () => {
         id: product._id,
         title: product.title,
         price: product.price,
+        thumbnail: product.thumbnail,
       };
       addToCart(itemToAdd);
       console.log(`Đã thêm sản phẩm ${product.title} vào giỏ hàng.`);

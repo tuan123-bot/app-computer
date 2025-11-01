@@ -7,7 +7,7 @@ import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const BASE_URL = "http://10.0.2.2:5000";
+const BASE_URL = "http://192.168.100.114:5000";
 const REGISTER_API_URL = `${BASE_URL}/api/register`;
 
 const style = StyleSheet.create({
