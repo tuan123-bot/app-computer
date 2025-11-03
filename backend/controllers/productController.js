@@ -1,230 +1,246 @@
-const Product = require("../models/Product");
-const Order = require("../models/OrderModel");
+// backend/controllers/productController.js (ĐÃ HOÀN THIỆN LOGIC)
 
-/**
- * @desc    Lấy danh sách sản phẩm (Active, chưa xóa)
- * @route   GET /api/products
- * @access  Public
- */
-const getProducts = async (req, res) => {
-  try {
-    // 1. Truy vấn Mongoose: Chỉ lấy sản phẩm chưa bị xóa và đang "active"
-    const products = await Product.find({
-      deleted: false,
-      status: "active",
-    })
-      .select("title description price discountPercentage thumbnail _id") // Chỉ lấy các trường cần thiết
-      .limit(20) // Giới hạn số lượng
-      .sort({ position: 1 }); // Sắp xếp theo vị trí
+import asyncHandler from "express-async-handler";
+import Order from "../models/OrderModel.js";
+import Product from "../models/Product.js";
 
-    // 2. Phản hồi lại Client (App/Web)
-    // Trả về đối tượng chứa mảng (để Frontend Admin có thể hoạt động)
-    res.status(200).json({
-      status: "success",
-      data: products,
-    });
-  } catch (error) {
-    console.error("Error fetching products:", error);
-    res.status(500).json({
-      status: "error",
-      message: "Internal server error",
-    });
+// ------------------------------------------
+// LẤY DANH SÁCH SẢN PHẨM (GET /api/products)
+// ------------------------------------------
+const getProducts = asyncHandler(async (req, res) => {
+  const products = await Product.find({ deleted: false, status: "active" })
+    .select("title description price thumbnail image _id stock") // Đã thêm 'stock'
+    .limit(20)
+    .sort({ position: 1 });
+  res.status(200).json(products);
+});
+
+// ------------------------------------------
+// THÊM SẢN PHẨM MỚI (POST /api/products)
+// ------------------------------------------
+const productList = asyncHandler(async (req, res) => {
+  const newProductData = req.body;
+  const imageFile = req.file;
+
+  if (!newProductData.title || newProductData.price === undefined) {
+    res.status(400);
+    throw new Error("Thiếu trường 'title' hoặc 'price' bắt buộc.");
   }
-};
 
-/**
- * @desc    Thêm sản phẩm mới
- * @route   POST /api/products
- * @access  Admin
- */
-const productList = async (req, res) => {
-  try {
-    const newProductData = req.body;
-
-    // 1. Kiểm tra dữ liệu bắt buộc
-    if (!newProductData.title || newProductData.price === undefined) {
-      return res.status(400).json({
-        status: "error",
-        message: "Thiếu trường 'title' hoặc 'price' bắt buộc.",
-      });
-    }
-
-    // 2. Tạo đối tượng Product mới
-    const productToSave = {
-      ...newProductData,
-      status: "active", // Đảm bảo sản phẩm mới luôn Active
-      deleted: false,
-    };
-
-    const newProduct = new Product(productToSave);
-
-    // 3. Lưu sản phẩm vào Database (Mongoose sẽ tự validation)
-    const savedProduct = await newProduct.save();
-
-    // 4. Phản hồi thành công
-    res.status(201).json({
-      status: "success",
-      message: "Thêm sản phẩm thành công!",
-      data: savedProduct,
-    });
-  } catch (error) {
-    console.error("Error creating product:", error);
-
-    // Bắt lỗi validation (ví dụ: price < 0, stock không phải số)
-    if (error.name === "ValidationError") {
-      return res.status(400).json({ status: "error", message: error.message });
-    }
-
-    res.status(500).json({
-      status: "error",
-      message: "Internal server error during product creation",
-    });
+  let imageUrl = "";
+  if (imageFile) {
+    imageUrl = `/uploads/${imageFile.filename}`;
   }
-};
 
-/**
- * @desc    Lấy chi tiết 1 sản phẩm theo ID
- * @route   GET /api/products/:id
- * @access  Public
- */
-const getProductDetail = async (req, res) => {
-  try {
-    const productId = req.params.id;
+  const productToSave = {
+    ...newProductData,
+    status: "active",
+    deleted: false,
+    thumbnail: imageUrl,
+    image: imageUrl,
+  };
+  const newProduct = new Product(productToSave);
+  const savedProduct = await newProduct.save();
 
-    // Tìm sản phẩm theo ID, không bao gồm các sản phẩm đã bị xóa
-    const product = await Product.findOne({
-      _id: productId,
-      deleted: false,
-    }).select("title description price discountPercentage thumbnail stock"); // 🚨 ĐÃ SỬA: Chủ động chọn các trường cần thiết cho trang chi tiết
+  res.status(201).json({
+    status: "success",
+    message: "Thêm sản phẩm thành công!",
+    data: savedProduct,
+  });
+});
 
-    // 1. Kiểm tra nếu không tìm thấy sản phẩm
-    if (!product) {
-      return res
-        .status(404)
-        .json({ status: "error", message: "Không tìm thấy sản phẩm." });
-    }
+// ------------------------------------------
+// CẬP NHẬT SẢN PHẨM (PUT /api/products/:id)
+// ------------------------------------------
+const updateProduct = asyncHandler(async (req, res) => {
+  const productId = req.params.id;
+  const updateData = req.body;
+  const imageFile = req.file;
 
-    // 2. Trả về chi tiết sản phẩm
-    res.status(200).json(product);
-  } catch (err) {
-    // Bắt lỗi khi ID không hợp lệ (CastError)
-    if (err.name === "CastError") {
-      return res.status(404).json({
-        status: "error",
-        message: "ID sản phẩm không hợp lệ.",
-      });
-    }
-
-    console.error("Lỗi lấy dữ liệu chi tiết sản phẩm:", err.message);
-    res.status(500).json({
-      status: "error",
-      message: "Lỗi Server nội bộ khi tải chi tiết sản phẩm.",
-    });
+  if (imageFile) {
+    updateData.thumbnail = `/uploads/${imageFile.filename}`;
+    updateData.image = `/uploads/${imageFile.filename}`;
   }
-};
-const createOrder = async (req, res) => {
-  try {
-    const orderData = req.body;
-    if (
-      !orderData.customerName ||
-      !orderData.totalAmount ||
-      orderData.items.length === 0
-    ) {
-      return res
-        .status(400)
-        .json({ status: "error", message: "Dữ liệu đơn hàng không hợp lệ." });
-    }
-    const newOrder = new Order(orderData);
-    await newOrder.save();
-    res.status(201).json({
-      status: "success",
-      message: "Đơn hàng đã được tạo thành công!",
-      orderId: newOrder._id,
-    });
-  } catch (error) {
-    console.error("Lỗi khi tạo đơn hàng:", error);
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: "Lỗi server nội bộ khi tạo đơn hàng.",
-      });
+
+  const updatedProduct = await Product.findByIdAndUpdate(
+    productId,
+    { $set: updateData },
+    { new: true, runValidators: true }
+  ).select("title description price stock thumbnail image _id"); // Đã đồng bộ 'stock'
+
+  if (!updatedProduct) {
+    res.status(404);
+    throw new Error("Không tìm thấy sản phẩm cần cập nhật.");
   }
-};
 
-// --- 2. LẤY TẤT CẢ ĐƠN HÀNG (GET /api/orders) ---
-const getOrders = async (req, res) => {
-  try {
-    const orders = await Order.find().sort({ createdAt: -1 });
-    res.status(200).json({
-      status: "success",
-      count: orders.length,
-      orders, // 💡 Trả về mảng 'orders'
-    });
-  } catch (error) {
-    console.error("Lỗi khi lấy danh sách đơn hàng:", error);
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: "Lỗi server nội bộ khi lấy danh sách đơn hàng.",
-      });
+  res.status(200).json({
+    status: "success",
+    message: "Cập nhật sản phẩm thành công!",
+    data: updatedProduct,
+  });
+});
+
+// ------------------------------------------
+// XÓA SẢN PHẨM (DELETE /api/products/:id)
+// ------------------------------------------
+const deleteProduct = asyncHandler(async (req, res) => {
+  const productId = req.params.id;
+  const deletedProduct = await Product.findByIdAndUpdate(
+    productId,
+    { deleted: true, status: "inactive" },
+    { new: true }
+  );
+  if (!deletedProduct) {
+    res.status(404);
+    throw new Error("Không tìm thấy sản phẩm cần xóa.");
   }
-};
+  res.status(200).json({
+    message: "Xóa sản phẩm thành công (Đã chuyển trạng thái)",
+    id: productId,
+  });
+});
 
-// --- 3. CẬP NHẬT TRẠNG THÁI ĐƠN HÀNG (PUT /api/orders/:id) ---
-const updateOrderStatus = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { status } = req.body;
+// ------------------------------------------
+// LẤY CHI TIẾT SP (GET /api/products/:id)
+// ------------------------------------------
+const getProductDetail = asyncHandler(async (req, res) => {
+  const productId = req.params.id;
+  const product = await Product.findOne({
+    _id: productId,
+    deleted: false,
+  }).select("title description price discountPercentage thumbnail stock");
+  if (!product) {
+    res.status(404);
+    throw new Error("Không tìm thấy sản phẩm.");
+  }
+  res.status(200).json(product);
+});
 
-    if (
-      !status ||
-      !["Pending", "Confirmed", "Shipped", "Cancelled"].includes(status)
-    ) {
-      return res
-        .status(400)
-        .json({
-          status: "error",
-          message: "Trạng thái cập nhật không hợp lệ.",
-        });
-    }
+// ------------------------------------------
+// TẠO ĐƠN HÀNG (POST /api/orders) - ĐÃ THÊM LOGIC KHO
+// ------------------------------------------
+const createOrder = asyncHandler(async (req, res) => {
+  const {
+    customerName,
+    customerPhone,
+    deliveryAddress,
+    paymentMethod,
+    items, // Mảng sản phẩm (có price và qty)
+    userId,
+  } = req.body;
 
-    const updatedOrder = await Order.findByIdAndUpdate(
-      id,
-      { status: status },
-      { new: true, runValidators: true }
+  if (!customerName || !items || items.length === 0) {
+    res.status(400);
+    throw new Error(
+      "Dữ liệu đơn hàng không hợp lệ: Thiếu thông tin khách hàng hoặc sản phẩm."
     );
-
-    if (!updatedOrder) {
-      return res
-        .status(404)
-        .json({
-          status: "error",
-          message: "Không tìm thấy đơn hàng cần cập nhật.",
-        });
-    }
-
-    res.status(200).json({
-      status: "success",
-      message: `Đơn hàng ${id} đã được cập nhật trạng thái thành ${status}.`,
-      order: updatedOrder,
-    });
-  } catch (error) {
-    console.error("Lỗi khi cập nhật trạng thái đơn hàng:", error);
-    res
-      .status(500)
-      .json({
-        status: "error",
-        message: "Lỗi server nội bộ khi cập nhật đơn hàng.",
-      });
   }
-};
-module.exports = {
+
+  const calculatedTotalAmount = items.reduce(
+    (sum, item) => sum + item.price * (item.qty || 1),
+    0
+  );
+
+  const orderUserId =
+    req.user?._id || req.body.userId || "60c72b2f9f1b4c3e8c9b2f2f";
+
+  if (calculatedTotalAmount <= 0) {
+    res.status(400);
+    throw new Error("Tổng tiền đơn hàng không hợp lệ.");
+  }
+
+  // 🎯 BƯỚC 1: KIỂM TRA KHO TRƯỚC KHI TẠO
+  const productTitles = items.map((item) => item.title);
+  const dbProducts = await Product.find({ title: { $in: productTitles } });
+
+  for (const item of items) {
+    const dbProduct = dbProducts.find((p) => p.title === item.title);
+    const requestedQty = item.qty || 1;
+
+    if (!dbProduct || dbProduct.stock < requestedQty) {
+      res.status(400);
+      const availableStock = dbProduct ? dbProduct.stock : 0;
+      throw new Error(
+        `Sản phẩm '${item.title}' chỉ còn ${availableStock} sản phẩm. Không đủ ${requestedQty}.`
+      );
+    }
+  }
+
+  // 🎯 BƯỚC 2: TẠO VÀ LƯU ĐƠN HÀNG
+  const newOrder = new Order({
+    user: orderUserId,
+    customerName,
+    customerPhone,
+    deliveryAddress,
+    paymentMethod,
+    items,
+    totalAmount: calculatedTotalAmount,
+  });
+
+  const savedOrder = await newOrder.save();
+
+  // 🎯 BƯỚC 3: GIẢM SỐ LƯỢNG KHO TRONG DB
+  for (const item of items) {
+    const requestedQty = item.qty || 1;
+
+    await Product.findOneAndUpdate(
+      { title: item.title },
+      { $inc: { stock: -requestedQty } },
+      { new: true }
+    );
+  }
+
+  res.status(201).json({
+    status: "success",
+    message: "Đơn hàng đã được tạo và kho đã được cập nhật!",
+    order: savedOrder,
+  });
+});
+
+// --- LẤY VÀ CẬP NHẬT ĐƠN HÀNG ---
+const getOrders = asyncHandler(async (req, res) => {
+  const orders = await Order.find()
+    .sort({ createdAt: -1 })
+    .populate("user", "name email");
+  res.status(200).json(orders);
+});
+
+const updateOrderStatus = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const { status } = req.body;
+  if (
+    !status ||
+    !["Pending", "Confirmed", "Shipped", "Delivered", "Cancelled"].includes(
+      status
+    )
+  ) {
+    res.status(400);
+    throw new Error("Trạng thái cập nhật không hợp lệ.");
+  }
+  const updatedOrder = await Order.findByIdAndUpdate(
+    id,
+    { status: status },
+    { new: true, runValidators: true }
+  );
+  if (!updatedOrder) {
+    res.status(404);
+    throw new Error("Không tìm thấy đơn hàng cần cập nhật.");
+  }
+  res.status(200).json({
+    status: "success",
+    message: `Đơn hàng ${id} đã được cập nhật trạng thái thành ${status}.`,
+    order: updatedOrder,
+  });
+});
+
+// --- EXPORT CÁC HÀM ---
+export {
+  createOrder,
+  deleteProduct,
+  getOrders,
+  getProductDetail,
   getProducts,
   productList,
-  getProductDetail,
-  getOrders,
   updateOrderStatus,
-  createOrder,
+  updateProduct,
 };

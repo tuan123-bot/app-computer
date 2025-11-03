@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-// const API_URL = "http://10.181.244.17:5000/api/products";
+// ⚠️ Đảm bảo IP BACKEND đã được thiết lập chính xác
 const API_URL = "http://192.168.100.114:5000/api/products";
 
 const style = StyleSheet.create({
@@ -36,47 +36,56 @@ const HomeScreen = () => {
 
   const [allProducts, setAllProducts] = useState<ProductItem[]>([]);
   const [displayProducts, setDisplayProducts] = useState<ProductItem[]>([]);
-
-  // ✅ THÊM: State cho loading ban đầu (isLoading) và kéo làm mới (isRefreshing)
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ✅ SỬ DỤNG useCallback CHO HÀM BẤT ĐỒNG BỘ (Fix lỗi performance)
+  const fetchProducts = useCallback(
+    async (isPullToRefresh: boolean = false) => {
+      if (!isPullToRefresh) {
+        setIsLoading(true);
+      } else {
+        setIsRefreshing(true);
+      }
+      setError(null);
+
+      try {
+        const response = await fetch(API_URL);
+        const apiData = await response.json(); // Nhận dữ liệu thô
+
+        // 🎯 SỬA LỖI ĐỊNH DẠNG API: Backend đã được sửa để trả về mảng trực tiếp
+        if (Array.isArray(apiData)) {
+          const fetchedData: ProductItem[] = apiData;
+          setAllProducts(fetchedData);
+          setDisplayProducts(fetchedData);
+        } else {
+          // Trường hợp API trả về Object lỗi hoặc định dạng cũ
+          console.error(
+            "API trả về định dạng không mong muốn hoặc lỗi:",
+            apiData
+          );
+          setError("Lỗi: Không thể tải dữ liệu sản phẩm.");
+          setAllProducts([]);
+          setDisplayProducts([]);
+        }
+      } catch (error) {
+        console.error("Could not fetch data:", error);
+        setError("Không thể kết nối đến Server Backend.");
+        setAllProducts([]);
+        setDisplayProducts([]);
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    },
+    []
+  ); // Dependency rỗng vì API_URL là hằng số
 
   useEffect(() => {
+    // ⚠️ Loại bỏ hàm bọc ngoài để gọi trực tiếp fetchProducts
     fetchProducts();
-  }, []);
-
-  // ✅ CHỈNH SỬA: Hàm tải dữ liệu, nhận tham số 'isPullToRefresh'
-  const fetchProducts = async (isPullToRefresh: boolean = false) => {
-    // Chỉ bật spinner loading ban đầu, không làm lại nếu là kéo làm mới
-    if (!isPullToRefresh) {
-      setIsLoading(true);
-    } else {
-      setIsRefreshing(true); // Bật spinner làm mới
-    }
-
-    try {
-      const response = await fetch(API_URL);
-      const json = await response.json();
-
-      if (json.status === "success" && Array.isArray(json.data)) {
-        const fetchedData: ProductItem[] = json.data;
-        setAllProducts(fetchedData);
-        setDisplayProducts(fetchedData);
-      } else {
-        console.error(
-          "API returned an error or unexpected format:",
-          json.message,
-          json
-        );
-      }
-    } catch (error) {
-      console.error("Could not fetch data:", error);
-    } finally {
-      // Ẩn cả hai trạng thái loading
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  };
+  }, [fetchProducts]); // Thêm fetchProducts vào dependency array
 
   const handleSearch = useCallback(
     (keyword: string) => {
@@ -95,11 +104,9 @@ const HomeScreen = () => {
     [allProducts]
   );
 
-  // ✅ THÊM: Hàm xử lý sự kiện kéo làm mới
   const handlePullToRefresh = useCallback(() => {
-    // Gọi fetchProducts và báo cho nó là Pull-to-Refresh
     fetchProducts(true);
-  }, []);
+  }, [fetchProducts]);
 
   const handleNavigateToDetail = (productId: string) => {
     router.push(`/productDetail/${productId}`);
@@ -109,38 +116,46 @@ const HomeScreen = () => {
     return (
       <View style={style.center}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text>Đang tải sản phẩm...</Text>
+        <Text style={{ marginTop: 10 }}>Đang tải sản phẩm...</Text>
       </View>
     );
   }
 
-  // ✅ CHỈNH SỬA: BỎ SCROLLVIEW BỌC NGOÀI, SỬ DỤNG ListHeaderComponent
+  if (error && displayProducts.length === 0) {
+    return (
+      <View style={style.center}>
+        <Text style={{ color: "red", textAlign: "center" }}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
     <SafeAreaView style={{ flex: 1 }}>
       <Header onSearch={handleSearch} />
 
       <FlatList
-        data={displayProducts}
+        // ✅ Đảm bảo luôn truyền mảng (an toàn)
+        data={displayProducts || []}
         renderItem={({ item }) => (
           <ProductCard item={item} onNavigate={handleNavigateToDetail} />
         )}
         keyExtractor={(item) => item._id}
         numColumns={2}
-        // 👈 PROP QUAN TRỌNG NHẤT: Bắt sự kiện kéo làm mới
         onRefresh={handlePullToRefresh}
-        // 👈 PROP KIỂM SOÁT SPINNER: Hiển thị vòng tròn loading
         refreshing={isRefreshing}
-        // ✅ DÙNG ListHeaderComponent THAY CHO ScrollView
         ListHeaderComponent={() => (
           <>
             <SalePaner />
-            {displayProducts.length === 0 && !isLoading && !isRefreshing && (
-              <View style={{ padding: 20, alignItems: "center" }}>
-                <Text style={{ color: "#9CA3AF" }}>
-                  Không tìm thấy sản phẩm nào.
-                </Text>
-              </View>
-            )}
+            {displayProducts.length === 0 &&
+              !isLoading &&
+              !isRefreshing &&
+              !error && (
+                <View style={{ padding: 20, alignItems: "center" }}>
+                  <Text style={{ color: "#9CA3AF" }}>
+                    Không tìm thấy sản phẩm nào.
+                  </Text>
+                </View>
+              )}
           </>
         )}
         contentContainerStyle={{ paddingHorizontal: 8 }}

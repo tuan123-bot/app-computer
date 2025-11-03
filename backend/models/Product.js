@@ -1,9 +1,8 @@
-// Product.js (Mongoose Schema)
-const mongoose = require("mongoose");
+// backend/models/Product.js (CẬP NHẬT)
+import mongoose from "mongoose";
 
 const productSchema = new mongoose.Schema(
   {
-    // _id: String, // Giữ nguyên ID nếu cần
     title: { type: String, required: true },
     description: String,
     price: { type: Number, required: true },
@@ -15,9 +14,11 @@ const productSchema = new mongoose.Schema(
     deleted: { type: Boolean, default: false },
   },
   {
-    timestamps: true, // Tự động thêm createdAt và updatedAt
+    timestamps: true,
   }
 );
 
 const Product = mongoose.model("Product", productSchema, "product");
-module.exports = Product;
+
+// ✅ PHẢI CÓ: Export Default để Controller có thể dùng 'import Product from...'
+export default Product;

@@ -11,29 +11,39 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useAuth } from "../context/AuthContext";
 import { useCart } from "../context/CartContext";
 
-// ⚠️ THAY THẾ IP NÀY BẰNG IP LAN CỦA MÁY CHỦ EXPRESS CỦA BẠN
+// ⚠️ THAY THẾ IP NÀY BẰNG IP LAN CHÍNH XÁC CỦA MÁY CHỦ EXPRESS CỦA BẠN
 const BACKEND_API_URL = "http://192.168.100.114:5000/api/orders";
 
 const CheckoutScreen = () => {
   const router = useRouter();
+
+  const { token } = useAuth();
   const { cartItems, cartTotal, clearCart } = useCart();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "Transfer">("COD");
-  const [isProcessing, setIsProcessing] = useState(false); // Trạng thái xử lý
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const isValid =
     name.trim() !== "" && phone.trim() !== "" && address.trim() !== "";
 
-  // 2. XỬ LÝ ĐẶT HÀNG (SỬ DỤNG FETCH API)
+  // 🧾 XỬ LÝ ĐẶT HÀNG
   const handlePlaceOrder = async () => {
+    if (!token) {
+      Alert.alert("Lỗi", "Vui lòng đăng nhập để hoàn tất đơn hàng.");
+      router.push("/(auth)/login");
+      return;
+    }
+
     if (!isValid || isProcessing) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ thông tin hoặc đang xử lý.");
       return;
     }
+
     setIsProcessing(true);
 
     const orderData = {
@@ -43,22 +53,30 @@ const CheckoutScreen = () => {
       paymentMethod:
         paymentMethod === "COD" ? "Thanh toán khi nhận hàng" : "Chuyển khoản",
       totalAmount: cartTotal,
+      // 🎯 FIX LỖI: Thêm trường 'qty: 1' vào mỗi item
       items: cartItems.map((item) => ({
         title: item.title,
         price: item.price,
+        qty: 1, // 👈 BỔ SUNG SỐ LƯỢNG MẶC ĐỊNH LÀ 1
       })),
     };
 
     try {
       const response = await fetch(BACKEND_API_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
         body: JSON.stringify(orderData),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error("Phiên làm việc hết hạn. Vui lòng đăng nhập lại.");
+        }
         throw new Error(
           result.message ||
             "Đặt hàng thất bại. Vui lòng kiểm tra kết nối Server."
@@ -86,7 +104,7 @@ const CheckoutScreen = () => {
     }
   };
 
-  // 3. COMPONENT CHỌN PHƯƠNG THỨC THANH TOÁN (Giữ nguyên)
+  // 💳 COMPONENT CHỌN PHƯƠNG THỨC THANH TOÁN
   const PaymentOption = ({
     method,
     label,
@@ -94,7 +112,6 @@ const CheckoutScreen = () => {
     method: "COD" | "Transfer";
     label: string;
   }) => (
-    // ... (Code Component PaymentOption giữ nguyên) ...
     <TouchableOpacity
       style={[
         styles.paymentButton,
@@ -120,8 +137,8 @@ const CheckoutScreen = () => {
     >
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <Text style={styles.title}>🛒 Thông Tin Thanh Toán</Text>
+
         {/* THÔNG TIN KHÁCH HÀNG */}
-        {/* ... (Các View, TextInput cho Name, Phone, Address giữ nguyên) ... */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>1. Thông tin giao hàng</Text>
           <TextInput
@@ -162,6 +179,7 @@ const CheckoutScreen = () => {
         {/* TÓM TẮT ĐƠN HÀNG */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>3. Tóm tắt đơn hàng</Text>
+
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>
               Tổng sản phẩm ({cartItems.length}):
@@ -170,10 +188,12 @@ const CheckoutScreen = () => {
               {cartTotal.toLocaleString("vi-VN")} VND
             </Text>
           </View>
+
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Phí vận chuyển:</Text>
             <Text style={styles.summaryValue}>Miễn phí</Text>
           </View>
+
           <View
             style={[
               styles.summaryRow,
@@ -210,7 +230,8 @@ const CheckoutScreen = () => {
     </KeyboardAvoidingView>
   );
 };
-// --- STYLES --- (Giữ nguyên)
+
+// --- STYLES (Giữ nguyên) ---
 const styles = StyleSheet.create({
   fullContainer: { flex: 1, backgroundColor: "#f9f9f9" },
   scrollContainer: { padding: 20, paddingTop: 50, paddingBottom: 100 },

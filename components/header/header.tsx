@@ -1,46 +1,80 @@
-// Header.tsx
-import EvilIcons from "@expo/vector-icons/EvilIcons";
-import React, { useState } from "react";
-import { StyleSheet, Text, TextInput, View } from "react-native";
-// ... (style và imports khác)
+// Header.tsx (CẬP NHẬT HOÀN TOÀN)
 
-// Định nghĩa props mà component này nhận
+import EvilIcons from "@expo/vector-icons/EvilIcons";
+import { useRouter } from "expo-router"; // Cần cho điều hướng
+import React, { useState } from "react";
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { useAuth } from "../../app/context/AuthContext"; // Import Context đã tạo
+
+// Định nghĩa props
 interface HeaderProps {
-  onSearch: (keyword: string) => void; // Hàm này sẽ được truyền từ HomeScreen
+  onSearch: (keyword: string) => void;
 }
 
 const Header = (props: HeaderProps) => {
+  const router = useRouter();
+  const { user } = useAuth(); // <<-- LẤY TRẠNG THÁI NGƯỜI DÙNG
   const { onSearch } = props;
   const [searchText, setSearchText] = useState("");
 
   const handleSearch = (text: string) => {
     setSearchText(text);
-    // Tùy chọn: Gọi onSearch ngay lập tức khi gõ (real-time filtering)
-    // onSearch(text);
+    // Tùy chọn: onSearch(text);
   };
 
   const handleSubmit = () => {
-    // Gọi hàm tìm kiếm được truyền từ component cha khi người dùng nhấn Enter
     onSearch(searchText);
   };
 
+  // Hàm xử lý khi nhấn vào nút Đăng nhập/Profile
+  const handleProfilePress = () => {
+    if (user) {
+      // Đã đăng nhập: Chuyển đến trang Profile
+      router.push("/(tabs)/profile");
+    } else {
+      // Chưa đăng nhập: Chuyển đến trang Login
+      router.push("/(auth)/login");
+    }
+  };
+
   return (
-    <View>
-      <Text>Tuan-Computer</Text>
-      <View style={styles.containerHeader}>
-        {/* ✅ Đã đổi style.containerHeader thành styles.containerHeader */}
+    <View style={styles.headerContainer}>
+      {/* Đổi tên style chính để dễ quản lý hơn */}
+      <View style={styles.logoAndAuthRow}>
+        {/* 1. Logo */}
+        <Text style={styles.logoText}>Tuan-Computer</Text>
+
+        {/* 2. Nút Đăng nhập/Profile */}
+        <TouchableOpacity
+          onPress={handleProfilePress}
+          style={styles.authButton}
+        >
+          <Text style={styles.authText}>
+            {/* Hiển thị tên nếu đã đăng nhập, hoặc lời mời nếu chưa */}
+            {user ? user.name : "Đăng nhập / Đăng ký"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      {/* Thanh tìm kiếm */}
+      <View style={styles.searchBar}>
         <EvilIcons
           name="search"
           size={24}
-          color="black"
-          onPress={handleSubmit} // Thêm hành động khi nhấn vào icon
+          color="#4F46E5" // Thêm màu sắc rõ ràng hơn
+          onPress={handleSubmit}
         />
         <TextInput
           style={styles.input}
           placeholder="Search"
           value={searchText}
-          onChangeText={handleSearch} // Cập nhật state khi nhập
-          onSubmitEditing={handleSubmit} // Kích hoạt tìm kiếm khi nhấn Enter
+          onChangeText={handleSearch}
+          onSubmitEditing={handleSubmit}
           returnKeyType="search"
         />
       </View>
@@ -48,15 +82,45 @@ const Header = (props: HeaderProps) => {
   );
 };
 
-// ... (Đảm bảo styles được định nghĩa)
+// ---------------------------
+// STYLE SHEET ĐÃ CẬP NHẬT
+// ---------------------------
 const styles = StyleSheet.create({
-  containerHeader: {
-    flexDirection: "row", // Sắp xếp các thành phần ngang hàng (Icon, TextInput, Icon)
-    alignItems: "center",
-    backgroundColor: "#f0f0f0", // Màu nền nhẹ cho thanh tìm kiếm
-    borderRadius: 25, // Bo tròn các góc
-    margin: 10,
+  headerContainer: {
     paddingHorizontal: 10,
+    paddingTop: 10,
+    backgroundColor: "white", // Đảm bảo nền trắng
+  },
+  logoText: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#1F2937", // Màu chữ đậm
+  },
+  logoAndAuthRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  authButton: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 5,
+    backgroundColor: "#F3F4F6", // Nền nhẹ
+  },
+  authText: {
+    fontSize: 14,
+    color: "#4F46E5", // Màu tím chủ đạo
+    fontWeight: "600",
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
+    borderRadius: 25,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    height: 40,
     borderWidth: 1,
     borderColor: "#ddd",
   },

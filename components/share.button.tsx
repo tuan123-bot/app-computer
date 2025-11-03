@@ -1,4 +1,4 @@
-import { APP_COLOR } from "@/utils/constant";
+import { APP_COLOR } from "@/backend/utils/constant";
 import { ReactNode } from "react";
 import {
   Pressable,

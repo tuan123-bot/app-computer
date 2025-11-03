@@ -1,4 +1,4 @@
-import { APP_COLOR } from "@/utils/constant";
+import { APP_COLOR } from "@/backend/utils/constant";
 import FontAwesome5 from "@expo/vector-icons/FontAwesome5";
 import { useState } from "react";
 import {

@@ -1,13 +1,12 @@
+import { APP_COLOR } from "@/backend/utils/constant";
 import ShareInput from "@/components/input/share.input";
 import ShareButton from "@/components/share.button";
 import SocialButton from "@/components/social.button";
-import { APP_COLOR } from "@/utils/constant";
-import { Link, router } from "expo-router";
+import { Link } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-const BASE_URL = "http://192.168.100.114:5000";
-const LOGIN_API_URL = `${BASE_URL}/api/login`;
+import { useAuth } from "../../app/context/AuthContext";
 
 const style = StyleSheet.create({
   container: {
@@ -18,50 +17,20 @@ const style = StyleSheet.create({
 });
 
 const Login = () => {
+  const { login, isLoading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
-    // Simple validation
     if (!email || !password) {
       Alert.alert("Lỗi", "Vui lòng nhập đầy đủ Email và Password.");
       return;
     }
 
-    setLoading(true);
-
-    let success = false;
-    let message = "Đã xảy ra lỗi không xác định.";
-
     try {
-      // Gọi API Đăng nhập
-      const response = await fetch(LOGIN_API_URL, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && response.status === 200) {
-        success = true;
-        message = data.msg || "Đăng nhập thành công!";
-        // TODO: Xử lý lưu Token JWT tại đây
-        router.navigate("/(tabs)/HomeScreen");
-      } else {
-        message =
-          data.msg || "Đăng nhập thất bại. Kiểm tra Email hoặc Mật khẩu.";
-      }
+      await login(email, password);
     } catch (error) {
-      // Bắt lỗi kết nối mạng (Network Timeout)
-      console.error("Lỗi kết nối API:", error);
-      message = `Không thể kết nối đến máy chủ: ${LOGIN_API_URL}. Vui lòng kiểm tra Server Backend, IP và Tường lửa.`;
-    } finally {
-      Alert.alert(success ? "Thành công" : "Lỗi", message);
-      setLoading(false);
+      console.error("Lỗi đăng nhập:", error);
     }
   };
 
@@ -89,9 +58,9 @@ const Login = () => {
         />
 
         <ShareButton
-          title={loading ? "ĐANG XỬ LÝ..." : "ĐĂNG NHẬP"}
+          title={isLoading ? "ĐANG XỬ LÝ..." : "ĐĂNG NHẬP"}
           onPress={handleLogin}
-          disabled={loading}
+          disabled={isLoading}
           textStyle={{
             textTransform: "uppercase",
             color: "white",
@@ -102,7 +71,7 @@ const Login = () => {
             paddingVertical: 10,
             marginHorizontal: 50,
             borderRadius: 30,
-            backgroundColor: loading ? APP_COLOR.GREY : APP_COLOR.ORANGE,
+            backgroundColor: isLoading ? APP_COLOR.GREY : APP_COLOR.ORANGE,
           }}
           pressStyle={{ alignSelf: "stretch" }}
         />
@@ -115,17 +84,20 @@ const Login = () => {
           }}
         >
           <Text style={{ textAlign: "center", color: "black" }}>
-            Chưa có tài khoản ?
+            Chưa có tài khoản?
           </Text>
+
           <Link href={"/(auth)/signup"}>
             <Text style={{ color: "black", textDecorationLine: "underline" }}>
-              Đăng kí
+              Đăng ký
             </Text>
           </Link>
         </View>
+
         <SocialButton />
       </View>
     </SafeAreaView>
   );
 };
+
 export default Login;

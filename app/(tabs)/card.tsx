@@ -1,4 +1,5 @@
-import { useRouter } from "expo-router"; // 👈 Import useRouter
+import Feather from "@expo/vector-icons/Feather";
+import { useRouter } from "expo-router";
 import React from "react";
 import {
   FlatList,
@@ -10,56 +11,73 @@ import {
 } from "react-native";
 import { useCart } from "../context/CartContext";
 
-// Giả định CartItem từ Context đã được cập nhật
+// 🎯 ĐỊNH NGHĨA BASE_URL CỦA SERVER
+const BASE_URL = "http://192.168.100.114:5000";
+
 interface CartItem {
   id: string;
   title: string;
   price: number;
-  thumbnail: string; // ✅ Đã thêm
+  thumbnail: string;
 }
 
+// 🎯 HÀM TẠO FULL URI
+const getFullUri = (path: string): string => {
+  if (path && path.startsWith("/uploads")) {
+    return `${BASE_URL}${path}`;
+  }
+  return path;
+};
+
 // Component hiển thị chi tiết một sản phẩm trong giỏ hàng
-const CartItemRow = ({ item }: { item: CartItem }) => (
-  <View style={styles.cartItem}>
-    {/* 1. HIỂN THỊ HÌNH ẢNH */}
-    <Image
-      source={{ uri: item.thumbnail }}
-      style={styles.itemThumbnail}
-      resizeMode="cover"
-    />
+const CartItemRow = ({ item }: { item: CartItem }) => {
+  const { removeProduct } = useCart();
+  const fullUri = getFullUri(item.thumbnail);
 
-    <View style={styles.itemDetails}>
-      {/* 2. HIỂN THỊ TÊN SẢN PHẨM */}
-      <Text style={styles.itemTitle} numberOfLines={2}>
-        {item.title}
-      </Text>
+  return (
+    <View style={styles.cartItem}>
+      {/* Ảnh sản phẩm */}
+      <Image
+        source={{ uri: fullUri }}
+        style={styles.itemThumbnail}
+        resizeMode="cover"
+      />
 
-      {/* 3. HIỂN THỊ GIÁ */}
-      <Text style={styles.itemPrice}>
-        {item.price.toLocaleString("vi-VN")} VND
-      </Text>
+      <View style={styles.itemDetails}>
+        <Text style={styles.itemTitle} numberOfLines={2}>
+          {item.title}
+        </Text>
+        <Text style={styles.itemPrice}>
+          {item.price.toLocaleString("vi-VN")} VND
+        </Text>
+      </View>
+
+      {/* Nút xóa */}
+      <View style={{ alignItems: "flex-end" }}>
+        <Text style={styles.itemQuantity}>x1</Text>
+        <TouchableOpacity
+          style={styles.removeButton}
+          onPress={() => removeProduct(item.id)}
+        >
+          <Feather name="trash-2" size={18} color="#E74C3C" />
+        </TouchableOpacity>
+      </View>
     </View>
-
-    {/* Placeholder cho số lượng hoặc nút xóa */}
-    <Text style={styles.itemQuantity}>x1</Text>
-  </View>
-);
+  );
+};
 
 const CartScreen = () => {
-  const router = useRouter(); // Khởi tạo router
-  const { cartCount, cartItems } = useCart(); // Lấy dữ liệu giỏ hàng
+  const router = useRouter();
+  const { cartCount, cartItems } = useCart();
 
-  // Tính Tổng giá tiền
   const cartTotal = cartItems.reduce((sum, item) => sum + item.price, 0);
 
-  // Xử lý chuyển hướng đến trang Thanh toán (Cần tạo file checkout.tsx)
   const handleCheckout = () => {
     if (cartCount > 0) {
-      router.push("./checkout"); // Ví dụ: Chuyển sang route /checkout.tsx
+      router.push("./checkout");
     }
   };
 
-  // Nếu giỏ hàng trống
   if (cartCount === 0) {
     return (
       <View style={styles.container}>
@@ -72,7 +90,6 @@ const CartScreen = () => {
     );
   }
 
-  // Footer (Thanh toán & Tổng tiền)
   const CartFooter = () => (
     <View style={styles.summaryContainer}>
       <View style={styles.totalRow}>
@@ -82,7 +99,6 @@ const CartScreen = () => {
         </Text>
       </View>
 
-      {/* NÚT THANH TOÁN */}
       <TouchableOpacity
         onPress={handleCheckout}
         style={styles.checkoutButton}
@@ -105,10 +121,9 @@ const CartScreen = () => {
         renderItem={({ item }) => <CartItemRow item={item as CartItem} />}
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        ListHeaderComponent={<View style={{ height: 10 }} />} // Khoảng cách đầu danh sách
+        ListHeaderComponent={<View style={{ height: 10 }} />}
       />
 
-      {/* ⚠️ LIST FOOTER KHÔNG CỐ ĐỊNH. TA SẼ SỬ DỤNG VIEW BÊN NGOÀI ĐỂ CỐ ĐỊNH THANH TOÁN */}
       <CartFooter />
     </View>
   );
@@ -151,9 +166,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   listContent: {
-    paddingBottom: 100, // Tạo khoảng trống để Footer không che mất item cuối
+    paddingBottom: 100,
   },
-  // --- Cart Item Style ---
   cartItem: {
     backgroundColor: "white",
     padding: 10,
@@ -195,9 +209,12 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: "#555",
   },
-  // --- Footer/Summary Style ---
+  removeButton: {
+    padding: 5,
+    marginTop: 5,
+  },
   summaryContainer: {
-    position: "absolute", // Cố định ở dưới cùng
+    position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
@@ -206,7 +223,7 @@ const styles = StyleSheet.create({
     borderTopColor: "#eee",
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: 30, // Thêm padding cho vùng an toàn (safe area)
+    paddingBottom: 30,
     shadowColor: "#000",
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: -2 },

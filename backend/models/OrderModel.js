@@ -1,13 +1,19 @@
-const mongoose = require("mongoose");
+// backend/models/OrderModel.js (ĐÃ SỬA LỖI VALIDATION)
+import mongoose from "mongoose";
 
 const OrderSchema = new mongoose.Schema(
   {
+    user: {
+      type: mongoose.Schema.Types.ObjectId,
+      required: true,
+      ref: "User",
+    },
     customerName: { type: String, required: true, trim: true },
     customerPhone: { type: String, required: true },
     deliveryAddress: { type: String, required: true },
     paymentMethod: {
-      type: String,
       enum: ["Thanh toán khi nhận hàng", "Chuyển khoản"],
+      type: String,
       required: true,
     },
     items: [
@@ -18,14 +24,22 @@ const OrderSchema = new mongoose.Schema(
     ],
     totalAmount: { type: Number, required: true },
     status: {
-      type: String,
-      enum: ["Pending", "Confirmed", "Shipped", "Cancelled"],
+      type: String, // SỬA LỖI: THÊM 'Delivered' VÀ 'Processing' vào Enum
+      enum: [
+        "Pending",
+        "Confirmed",
+        "Shipped",
+        "Cancelled",
+        "Delivered",
+        "Processing",
+      ],
       default: "Pending",
     },
   },
   {
-    timestamps: true, // Mongoose tự động đặt tên là 'orders'
+    timestamps: true,
   }
 );
 
-module.exports = mongoose.model("Order", OrderSchema);
+const Order = mongoose.model("Order", OrderSchema);
+export default Order;

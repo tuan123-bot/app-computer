@@ -1,7 +1,7 @@
+import { APP_COLOR } from "@/backend/utils/constant";
 import ShareInput from "@/components/input/share.input";
 import ShareButton from "@/components/share.button";
 import SocialButton from "@/components/social.button";
-import { APP_COLOR } from "@/utils/constant";
 import { Link } from "expo-router";
 import { useState } from "react";
 import { Alert, StyleSheet, Text, View } from "react-native";

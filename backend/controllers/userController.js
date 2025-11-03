@@ -1,160 +1,166 @@
-const User = require("../models/User"); // Import Mongoose Model
-const bcrypt = require("bcryptjs"); // Thư viện mã hóa mật khẩu
-// const jwt = require("jsonwebtoken"); // Sẽ dùng cho bước JWT tiếp theo
+// backend/controllers/userController.js (PHIÊN BẢN HOÀN CHỈNH)
 
-/**
- * @desc    Đăng ký người dùng mới
- * @route   POST /api/register
- * @access  Public
- */
-const registerUser = async (req, res) => {
-  try {
-    const { name, email, password } = req.body;
+import bcrypt from "bcryptjs";
+import asyncHandler from "express-async-handler";
+import User from "../models/User.js";
+import generateToken from "../utils/generateToken.js"; // Đảm bảo đã có file này
 
-    // 1. Kiểm tra đầu vào
-    if (!name || !email || !password) {
-      return res
-        .status(400)
-        .json({ msg: "Vui lòng điền đầy đủ Tên, Email và Mật khẩu." });
-    }
+// ------------------------------------------
+// I. CÁC HÀM CŨ (Đã khôi phục logic và bọc asyncHandler)
+// ------------------------------------------
 
-    // 2. Kiểm tra Email đã tồn tại chưa
-    let user = await User.findOne({ email });
-    if (user) {
-      return res.status(400).json({ msg: "Email này đã được đăng ký." });
-    }
+// @desc Đăng ký người dùng mới (POST /api/register)
+const registerUser = asyncHandler(async (req, res) => {
+  const { name, email, password } = req.body;
+  if (!name || !email || !password) {
+    res.status(400);
+    throw new Error("Vui lòng điền đầy đủ Tên, Email và Mật khẩu.");
+  }
 
-    // 3. Tạo 'Salt' và Mã hóa Mật khẩu
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+  const userExists = await User.findOne({ email });
+  if (userExists) {
+    res.status(400);
+    throw new Error("Email này đã được đăng ký.");
+  }
 
-    // 4. Tạo Người dùng mới với mật khẩu đã mã hóa
-    user = new User({
-      name,
-      email,
-      password: hashedPassword,
-    });
+  const salt = await bcrypt.genSalt(10);
+  const hashedPassword = await bcrypt.hash(password, salt);
 
-    // 5. Lưu vào cơ sở dữ liệu
-    await user.save();
-
-    // 6. Trả lời thành công
+  const user = await User.create({ name, email, password: hashedPassword });
+  if (user) {
     res.status(201).json({
       success: true,
-      msg: "Đăng ký thành công! Dữ liệu đã được lưu trữ.",
+      msg: "Đăng ký thành công!",
+      _id: user._id,
       name: user.name,
       email: user.email,
+      token: generateToken(user._id),
     });
-  } catch (err) {
-    console.error("Lỗi đăng ký:", err.message);
-    res.status(500).json({ msg: "Lỗi Server nội bộ." });
+  } else {
+    res.status(400);
+    throw new Error("Dữ liệu người dùng không hợp lệ");
   }
-};
+});
 
-/**
- * @desc    Đăng nhập người dùng
- * @route   POST /api/login
- * @access  Public
- */
-const loginUser = async (req, res) => {
+// @desc Đăng nhập người dùng (POST /api/login)
+const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+  const user = await User.findOne({ email });
 
-  // Kiểm tra dữ liệu đầu vào
-  if (!email || !password) {
-    return res.status(400).json({ msg: "Vui lòng nhập Email và Password." });
-  }
-
-  try {
-    // 1. Tìm người dùng bằng email
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(401).json({ msg: "Thông tin đăng nhập không hợp lệ." });
-    }
-
-    // 2. So sánh mật khẩu đã mã hóa
-    const isMatch = await bcrypt.compare(password, user.password);
-
-    if (!isMatch) {
-      return res.status(401).json({ msg: "Thông tin đăng nhập không hợp lệ." });
-    }
-
-    // 3. Đăng nhập thành công
-    // TODO: Bổ sung logic tạo và trả về JWT Token tại đây
+  if (user && (await bcrypt.compare(password, user.password))) {
     res.status(200).json({
       msg: "Đăng nhập thành công!",
-      // token: [JWT_TOKEN_HERE],
-      user: {
-        id: user._id,
-        name: user.name,
-      },
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      token: generateToken(user._id),
     });
-  } catch (err) {
-    console.error("Lỗi đăng nhập:", err.message);
-    res.status(500).json({ msg: "Lỗi Server." });
+  } else {
+    res.status(401);
+    throw new Error("Thông tin đăng nhập không hợp lệ.");
   }
-};
+});
 
-/**
- * @desc    Lấy tất cả người dùng (dành cho Admin Dashboard)
- * @route   GET /api/users
- * @access  Public
- */
-const getUsers = async (req, res) => {
-  try {
-    // 🚨 ĐÃ SỬA: CHỈ LẤY NGƯỜI DÙNG CHƯA BỊ XÓA (deleted: false)
-    const users = await User.find({ deleted: false }).select(
-      "_id name email registeredAt"
-    );
-
-    // Trả về mảng người dùng trực tiếp
-    res.status(200).json(users);
-  } catch (err) {
-    console.error("Lỗi lấy dữ liệu người dùng:", err.message);
-    res.status(500).json({ msg: "Lỗi Server khi tải dữ liệu." });
+// @desc Lấy tất cả người dùng (GET /api/users)
+const getUsers = asyncHandler(async (req, res) => {
+  // 🎯 FIX LỖI LỌC: BỎ { deleted: false } để lấy tất cả người dùng MỚI
+  // 🎯 FIX SELECT: Thêm trường 'isAdmin' để Frontend hiển thị đúng vai trò
+  const users = await User.find({}).select(
+    "_id name email registeredAt isAdmin" // <-- ĐÃ THÊM isAdmin
+  );
+  if (!users || users.length === 0) {
+    return res.status(200).json([]);
   }
-};
 
-/**
- * @desc    Xóa người dùng (Soft Delete)
- * @route   DELETE /api/users/:id
- * @access  Admin/Private
- */
-const deleteUser = async (req, res) => {
-  try {
-    // Lấy ID người dùng từ tham số URL
-    const userId = req.params.id;
+  res.status(200).json(users);
+});
 
-    // 🚨 ĐÃ SỬA: Sử dụng findByIdAndUpdate để thực hiện XÓA MỀM (Soft Delete)
-    const result = await User.findByIdAndUpdate(
-      userId,
-      { deleted: true, deletedAt: new Date() }, // Thiết lập cờ xóa và thời gian xóa
-      { new: true } // Trả về tài liệu đã cập nhật
-    );
+// @desc Xóa người dùng (DELETE /api/users/:id)
+const deleteUser = asyncHandler(async (req, res) => {
+  const userId = req.params.id;
+  const result = await User.findByIdAndUpdate(
+    userId,
+    { deleted: true, deletedAt: new Date() },
+    { new: true }
+  );
 
-    // 2. Kiểm tra nếu không tìm thấy người dùng
-    if (!result) {
-      return res.status(404).json({
-        msg: "Người dùng không tồn tại hoặc đã bị xóa trước đó.",
-      });
+  if (!result) {
+    res.status(404);
+    throw new Error("Người dùng không tồn tại hoặc đã bị xóa trước đó.");
+  }
+
+  res
+    .status(200)
+    .json({ success: true, msg: "Xóa mềm tài khoản người dùng thành công." });
+});
+
+// ------------------------------------------
+// II. HÀM MỚI CHO PROFILE
+// ------------------------------------------
+
+// @desc Lấy Profile (GET /api/users/profile)
+const getUserProfile = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id).select("-password");
+  if (user) {
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      avatar: user.avatar || "default_avatar.png", // Dữ liệu ảnh đại diện
+    });
+  } else {
+    res.status(404);
+    throw new Error("Người dùng không tìm thấy");
+  }
+});
+
+// @desc Đổi Mật khẩu (PUT /api/users/password)
+const updatePassword = asyncHandler(async (req, res) => {
+  const user = await User.findById(req.user._id);
+  if (user) {
+    const { currentPassword, newPassword } = req.body;
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      res.status(401);
+      throw new Error("Mật khẩu hiện tại không chính xác");
     }
-
-    // 3. Xóa mềm thành công
-    res.status(200).json({
-      success: true,
-      msg: "Xóa mềm tài khoản người dùng thành công.",
-    });
-  } catch (err) {
-    // Lỗi Server (ví dụ: lỗi kết nối DB, ID không đúng định dạng Mongoose)
-    console.error("Lỗi khi xóa người dùng:", err.message);
-    res.status(500).json({ msg: "Lỗi Server nội bộ khi xóa dữ liệu." });
+    const salt = await bcrypt.genSalt(10);
+    user.password = await bcrypt.hash(newPassword, salt);
+    await user.save();
+    res.json({ message: "Mật khẩu đã được cập nhật thành công" });
+  } else {
+    res.status(404);
+    throw new Error("Người dùng không tồn tại");
   }
-};
+});
+const getWishlist = asyncHandler(async (req, res) => {
+  // 1. Lấy User ID từ token (đã được bảo vệ bởi middleware 'protect')
+  const userId = req.user._id;
 
-// --- ĐẢM BẢO EXPORT (XUẤT) CÁC HÀM ĐỂ SERVER.JS CÓ THỂ GỌI ---
-module.exports = {
-  registerUser,
-  loginUser,
-  getUsers,
+  // 2. Tìm người dùng và populate (điền đầy) danh sách yêu thích
+  // Giả định User Model của bạn có trường 'wishlist' lưu [ObjectID của Sản phẩm]
+  const user = await User.findById(userId)
+    .select("wishlist")
+    .populate("wishlist");
+
+  if (!user) {
+    res.status(404);
+    throw new Error("Người dùng không tìm thấy.");
+  }
+
+  // 3. Trả về mảng các sản phẩm yêu thích
+  // Nếu trường wishlist trong Model User của bạn tên là 'favorites', hãy sửa ở đây
+  const wishlistProducts = user.wishlist || [];
+
+  res.status(200).json(wishlistProducts);
+});
+
+export {
   deleteUser,
+  getUserProfile,
+  getUsers,
+  getWishlist,
+  loginUser,
+  registerUser,
+  updatePassword,
 };

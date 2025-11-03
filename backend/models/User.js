@@ -1,33 +1,30 @@
-const mongoose = require("mongoose");
+// backend/models/User.js (THAY THẾ TOÀN BỘ)
+import mongoose from "mongoose";
 
-// Định nghĩa Schema cho người dùng
 const UserSchema = new mongoose.Schema(
   {
-    name: {
-      type: String,
-      required: true,
-      trim: true, // Loại bỏ khoảng trắng thừa
-    },
+    wishlist: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Product", // Lưu tham chiếu đến Model Product
+      },
+    ],
+    name: { type: String, required: true, trim: true },
     email: {
       type: String,
       required: true,
-      unique: true, // Đảm bảo email là duy nhất
+      unique: true,
       lowercase: true,
       trim: true,
     },
-    password: {
-      type: String,
-      required: true,
-    },
-    registeredAt: {
-      type: Date,
-      default: Date.now,
-    },
+    password: { type: String, required: true },
+    registeredAt: { type: Date, default: Date.now },
+    avatar: { type: String, default: "default_avatar.png" }, // BỔ SUNG TRƯỜNG AVATAR
   },
   {
-    // Tự động thêm createdAt và updatedAt
     timestamps: true,
   }
 );
 
-module.exports = mongoose.model("user", UserSchema);
+const User = mongoose.model("User", UserSchema);
+export default User;
